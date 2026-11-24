@@ -1,0 +1,49 @@
+// Sweety Prisma Database Schema
+// Database: PostgreSQL with Prisma ORM
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TimeSlot {
+  MORNING
+  AFTER_BREAKFAST
+  AFTER_LUNCH
+  AFTER_DINNER
+}
+
+model User {
+  id           String    @id @default(uuid())
+  name         String
+  email        String    @unique
+  password     String
+  tokenVersion Int       @default(0) @map("token_version")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  readings     Reading[]
+
+  @@map("users")
+}
+
+model Reading {
+  id           String    @id @default(uuid())
+  userId       String    @map("user_id")
+  readingDate  DateTime  @map("reading_date") @db.Date
+  timeSlot     TimeSlot  @map("time_slot")
+  glucoseValue Int       @map("glucose_value")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Composite unique constraint: Max 4 readings per day (1 per time slot)
+  @@unique([userId, readingDate, timeSlot], name: "unique_user_date_timeslot")
+  // Composite index for efficient querying by user and date ranges
+  @@index([userId, readingDate], name: "idx_user_date")
+  @@map("readings")
+}
